@@ -40,67 +40,56 @@ the use of this software, even if advised of the possibility of such damage.
 #include <opencv2/opencv.hpp>
 #include "facedetectcnn.h"
 
-//define the buffer size. Do not change the size!
+// define the buffer size. Do not change the size!
 #define DETECT_BUFFER_SIZE 0x20000
-using namespace cv;
 
-int main(int argc, char* argv[])
-{
-    if(argc != 2)
-    {
-        printf("Usage: %s <image_file_name>\n", argv[0]);
-        return -1;
-    }
+int main(int argc, char *argv[]) {
+  if (argc != 3) {
+    printf("Usage: %s <image_file_name> <output_file_name>\n", argv[0]);
+    return -1;
+  }
 
-	//load an image and convert it to gray (single-channel)
-	Mat image = imread(argv[1]); 
-	if(image.empty())
-	{
-		fprintf(stderr, "Can not load the image file %s.\n", argv[1]);
-		return -1;
-	}
+  // load an image and convert it to gray (single-channel)
+  cv::Mat image = cv::imread(argv[1]);
+  if (image.empty()) {
+    fprintf(stderr, "Can not load the image file %s.\n", argv[1]);
+    return -1;
+  }
 
-	int * pResults = NULL; 
-    //pBuffer is used in the detection functions.
-    //If you call functions in multiple threads, please create one buffer for each thread!
-    unsigned char * pBuffer = (unsigned char *)malloc(DETECT_BUFFER_SIZE);
-    if(!pBuffer)
-    {
-        fprintf(stderr, "Can not alloc buffer.\n");
-        return -1;
-    }
-	
+  // input_buffer is used in the detection functions.
+  // If you call functions in multiple threads, please create one buffer for each thread!
+  unsigned char *input_buffer = (unsigned char *)malloc(DETECT_BUFFER_SIZE);
+  if (!input_buffer) {
+    fprintf(stderr, "Can not alloc buffer.\n");
+    return -1;
+  }
 
-	///////////////////////////////////////////
-	// CNN face detection 
-	// Best detection rate
-	//////////////////////////////////////////
-	//!!! The input image must be a BGR one (three-channel) instead of RGB
-	//!!! DO NOT RELEASE pResults !!!
-	pResults = facedetect_cnn(pBuffer, (unsigned char*)(image.ptr(0)), image.cols, image.rows, (int)image.step);
+  ///////////////////////////////////////////
+  // CNN face detection
+  // Best detection rate
+  //////////////////////////////////////////
+  //!!! The input image must be a BGR one (three-channel) instead of RGB
+  //!!! DO NOT RELEASE output_buffer !!!
+  int *output_buffer = facedetect_cnn(input_buffer, (unsigned char *)(image.ptr(0)), image.cols, image.rows, (int)image.step);
+  printf("{\"count\": %d, \n\"faces\": [\n", (output_buffer ? *output_buffer : 0));
 
-    printf("%d faces detected.\n", (pResults ? *pResults : 0));
-	Mat result_cnn = image.clone();
-	//print the detection results
-	for(int i = 0; i < (pResults ? *pResults : 0); i++)
-	{
-        short * p = ((short*)(pResults+1))+142*i;
-		int x = p[0];
-		int y = p[1];
-		int w = p[2];
-		int h = p[3];
-		int confidence = p[4];
-		int angle = p[5];
+  cv::Mat result_cnn = image.clone();
+  // print the detection results
+  for (int i = 0; i < (output_buffer ? *output_buffer : 0); i++) {
+    short *p = ((short *)(output_buffer + 1)) + 142 * i;
+    int x = p[0], y = p[1], w = p[2], h = p[3], confidence = p[4], angle = p[5];
+    printf("{\"position\": [%d, %d, %d, %d], \"confidence\": %d, \"angle\": %d}\n", x, y, w, h, confidence, angle);
+    cv::rectangle(result_cnn, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+  }
+  printf("]}");
 
-		printf("face_rect=[%d, %d, %d, %d], confidence=%d, angle=%d\n", x,y,w,h,confidence, angle);
-		rectangle(result_cnn, Rect(x, y, w, h), Scalar(0, 255, 0), 2);
-	}
-	imshow("result_cnn", result_cnn);
+  cv::imwrite(argv[2], result_cnn);
 
-	waitKey();
+  // imshow("result_cnn", result_cnn);
+  // waitKey();
 
-    //release the buffer
-    free(pBuffer);
+  // release the input buffer
+  free(input_buffer);
 
-	return 0;
+  return 0;
 }
