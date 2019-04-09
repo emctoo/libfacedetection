@@ -75,10 +75,12 @@ int main(int argc, char *argv[]) {
 
   cv::Mat result_cnn = image.clone();
   // print the detection results
-  for (int i = 0; i < (output_buffer ? *output_buffer : 0); i++) {
+  int total_faces = output_buffer ? *output_buffer : 0;
+  for (int i = 0; i < total_faces; i++) {
     short *p = ((short *)(output_buffer + 1)) + 142 * i;
     int x = p[0], y = p[1], w = p[2], h = p[3], confidence = p[4], angle = p[5];
-    printf("{\"position\": [%d, %d, %d, %d], \"confidence\": %d, \"angle\": %d}\n", x, y, w, h, confidence, angle);
+    printf("{\"position\": [%d, %d, %d, %d], \"confidence\": %d, \"angle\": %d}", x, y, w, h, confidence, angle);
+	if (i < total_faces - 1) printf(",");
     cv::rectangle(result_cnn, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
   }
   printf("]}");
